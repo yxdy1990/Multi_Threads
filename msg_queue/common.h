@@ -17,6 +17,8 @@
 #include <sys/msg.h>
 #include <sys/time.h>
 #include <net/if.h>
+#include <signal.h>
+//#include <time.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <fcntl.h>
@@ -30,6 +32,8 @@
  */
 
 typedef struct {
+    int  _iFrom_id;
+    int  _iTo_id;
     long _lType;
     char _cText[MSGSIZE];
 }st_msg_buf;
