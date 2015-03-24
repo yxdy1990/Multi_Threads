@@ -14,5 +14,5 @@ proc: $(OBJ3)
 	$(CC) -g $(OBJ3) -o proc
 
 clean:
-	rm -rf *.o core* send recv proc
+	rm -rf *.o core* send recv proc *log
 
