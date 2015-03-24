@@ -26,15 +26,19 @@
 #include <string.h>
  
 #define MSGSIZE   128
+#define MSG_QUEUE_KEY 1234
  
+#define PROC_SEND   1
+#define PROC_RECV   2
+#define PROC_INVALID    0xff
+
 /*
  * Declare the message structure.
  */
 
 typedef struct {
-    int  _iFrom_id;
-    int  _iTo_id;
     long _lType;
+    int  _iSrc;
     char _cText[MSGSIZE];
 }st_msg_buf;
 

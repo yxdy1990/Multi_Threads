@@ -24,24 +24,33 @@ void send_proc (int p_id)
     st_msg_buf msg_buf;
     size_t buf_size;
     int index;
-    char input[3][MSGSIZE] = {"Hello world!", "I love you!", "Very good!"};
+    //char input[3][MSGSIZE] = {"Hello world!", "I love you!", "Very good!"};
+    char input[MSGSIZE];
 
-    msg_buf._lType = 1;
-    msg_buf._iFrom_id = p_id;
+    msg_buf._iSrc = getpid();
    
-    if ((msq_id = msgget(1234, 0666)) < 0)                  
+    if ((msq_id = msgget(MSG_QUEUE_KEY, 0666)) < 0)                  
     {                                                      
         perror("msgget");                                  
         exit(EXIT_FAILURE);                                
     }
 
-   // while (1)
-    //{
-        //fgets(input, MSGSIZE, stdin);
-        for (index = 0; index < 3; index++)
-        {
+    while (1)
+    {
+        fgets(input, MSGSIZE, stdin);
+        //for (index = 0; index < 3; index++)
+        //{
         bzero(msg_buf._cText, MSGSIZE);
-        strncpy(msg_buf._cText, input[index], strlen(input[index]) - 1);
+        strncpy(msg_buf._cText, input/*[index]*/, strlen(input/*[index]*/) - 1);
+
+        if (strlen(input) > 6)
+        {
+            msg_buf._lType = PROC_RECV;
+        }
+        else
+        {
+            msg_buf._lType = PROC_INVALID;
+        }
 
         if (msgsnd(msq_id, &msg_buf, sizeof(msg_buf._cText), IPC_NOWAIT) < 0)
         {
@@ -50,11 +59,11 @@ void send_proc (int p_id)
         }
         else
         {
-            printf("Message Sent: From[%d], Text[%s] \n", msg_buf._iFrom_id, msg_buf._cText);
+            printf("Message Sent: From[%d], Text[%s] \n", msg_buf._iSrc, msg_buf._cText);
         }
-        sleep(3);
-        }
-    //}
+        //sleep(3);
+        //}
+    }
 }
 
 
@@ -74,8 +83,7 @@ void recv_proc (int p_id)
     (void) fprintf(file_s, "\nNew start:\n");
     (void) fprintf(file_s, "Open log file success!\n");
 
-    msg_buf._lType = 1;
-    msg_buf._iTo_id = p_id;
+    msg_buf._lType = PROC_RECV;;
     
     if ((msq_id = msgget(1234, 0666)) < 0)                  
     {                                                      
@@ -88,17 +96,16 @@ void recv_proc (int p_id)
     }
     while (1)
     {
-        (void) fprintf(file_s, "Enter Recv loop!\n");
+        //(void) fprintf(file_s, "Enter Recv loop!\n");
     /*  Receive message from queue */                   
-        if (msgrcv(msq_id, &msg_buf, MSGSIZE, 1, 0) < 0)   
+        if (msgrcv(msq_id, &msg_buf, sizeof(st_msg_buf) - sizeof(long), PROC_RECV, MSG_NOERROR) < 0)   
         {                                                  
             perror("msgrcv");                              
-            (void) fprintf(file_s, "Msgrecv Error\n");
             exit(EXIT_FAILURE);
         }
         else                                               
         {                                                  
-            (void) fprintf(file_s, "Message Received: Text[%s] \n", msg_buf._cText);
+            (void) fprintf(file_s, "Message Received: From[%d],Text[%s] \n", msg_buf._iSrc,  msg_buf._cText);
         }                                                  
     }
 }
@@ -125,7 +132,7 @@ int main ( int argc, char *argv[] )
     int proc_send_id, proc_recv_id;
     struct msqid_ds msq_set;
     int msg_flg = IPC_CREAT | 0666;
-    key_t key = 1234;
+    key_t key = MSG_QUEUE_KEY;
 
     if ((msq_id = msgget(key, msg_flg)) < 0) 
     {
@@ -156,13 +163,9 @@ int main ( int argc, char *argv[] )
     }
     else if (proc_id == 0)
     {
-        // Send engine
-        printf("Parent id: %d, Child id: %d\n", getppid(), getpid());
+        printf("Send process-> Parent id: %d, Child id: %d\n", getppid(), getpid());
         signal(SIGINT, init_handler);
-        send_proc(getpid());
-    }
-    else
-    {
+     
         if (( proc_id = fork()) < 0)
         {
             perror("fork");
@@ -171,14 +174,20 @@ int main ( int argc, char *argv[] )
         else if (proc_id == 0)
         {
             // Receive engine
-            printf("Parent id: %d, Child id: %d\n", getppid(), getpid());
+            printf("Recv process-> Parent id: %d, Child id: %d\n", getppid(), getpid());
             signal(SIGINT, init_handler);
             recv_proc(getpid());
         }
         else
         {
-            signal(SIGINT, SIG_IGN);
+            // Send engine
+            send_proc(getpid());
+            wait(NULL);
         }
+    }
+    else
+    {
+        signal(SIGINT, SIG_IGN);
         wait(NULL);   
         
         if (file_s != NULL)
@@ -187,7 +196,6 @@ int main ( int argc, char *argv[] )
         }
         
         msgctl(msq_id, IPC_RMID, NULL); // Remove message queue
-        
         printf("Parent Process Exit!\n");
        
         return EXIT_SUCCESS;
